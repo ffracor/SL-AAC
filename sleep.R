@@ -7,10 +7,15 @@ library("glmnet")
 library ( ISLR2 )
 library ( boot )
 
+library(tree)
+library ( randomForest )
+library ( gbm )
+
+
 rm(list = ls()) # clear all environment variable
 
 # PREPROCESSING
-x = read.csv("/Users/anselminicolas/Desktop/Uni/Quarto anno/Statistical Learning/Progetto/Sleep_Efficiency.csv")
+x = read.csv("Sleep_Efficiency.csv")
 x$Smoking.status <- as.numeric(as.factor(x$Smoking.status))
 x$Gender <- ifelse(x$Gender=="Male",1,0)
 x <- x[,-1]
@@ -83,7 +88,7 @@ ridge_test_MSE
 
 # 
 
-x = read.csv("/Users/anselminicolas/Desktop/Uni/Quarto anno/Statistical Learning/Progetto/Sleep_Efficiency.csv")
+x = read.csv("Sleep_Efficiency.csv")
 x$Smoking.status <- as.numeric(as.factor(x$Smoking.status))
 x$Gender <- ifelse(x$Gender=="Male",1,0)
 x <- x[,-1]
@@ -93,5 +98,49 @@ x$REM.sleep.percentage <- x$Sleep.duration * x$REM.sleep.percentage/100
 x$Deep.sleep.percentage <- x$Deep.sleep.percentage/100 * x$Sleep.duration
 x$Light.sleep.percentage <- x$Light.sleep.percentage/100 * x$Sleep.duration
 
+##Metodi ad albero
+#albero semplice
+tree_model <- tree( x$Sleep.efficiency ~ . -x$Sleep.efficiency , data= x, split="gini", subset = train)
+#tree_model <- tree( x$Sleep.efficiency ~ . -x$Sleep.efficiency , data= x, subset = train)
+summary(tree_model)
+plot(tree_model)
+text(tree_model, pretty = 0)
 
+tree_fit <- predict(tree_model, newdata = x[-train,])
+tree_test_MSE = mean((x$Sleep.efficiency[-train] - tree_fit)^2)
+tree_test_MSE
 
+#bagging
+bagg_model <- randomForest(x$Sleep.efficiency ~ . ,data = x, subset = train,
+                           mtry = ncol(x)-1, importance = TRUE, replace = TRUE, ntree = 300)
+summary(bagg_model)
+
+plot(bagg_model)
+bagg_fit <- predict(bagg_model, newdata = x[-train,])
+plot(bagg_fit, x$Sleep.efficiency[-train])
+abline(0,1)
+
+bagg_test_MSE = mean((x$Sleep.efficiency[-train] - bagg_fit)^2)
+bagg_test_MSE
+
+#random-forest
+rand_model <- randomForest(x$Sleep.efficiency ~ . ,data = x, subset = train,
+                           mtry = floor(sqrt(ncol(x)-1)), importance = TRUE, replace = TRUE, ntree = 300)
+summary(rand_model)
+
+plot(rand_model)
+rand_fit <- predict(rand_model, newdata = x[-train,])
+plot(rand_fit, x$Sleep.efficiency[-train])
+abline(0,1)
+
+rand_test_MSE = mean((x$Sleep.efficiency[-train] - rand_fit)^2)
+rand_test_MSE
+
+#boosting
+boost_model <- gbm(Sleep.efficiency ~ . , data = x[train, ],
+                   n.trees = 300, interaction.depth = 4, shrinkage = 0.01 , verbose = F)
+boost_model
+
+boost_fit <- predict(boost_model, newdata = x[-train,], n.trees = 300)
+boost_test_MSE <- mean((boost_fit - x$Sleep.efficiency[-train])^2)
+boost_test_MSE
