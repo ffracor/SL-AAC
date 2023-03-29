@@ -34,14 +34,31 @@ set.seed(42)
 train <- sample(nrow(x), floor(nrow(x) * 0.75), replace = FALSE)
 
 
-mdl <- lm(Sleep.efficiency ~ . , data = x[train,])
+mdl <- lm(Sleep.efficiency ~ . , data = x[-train,])
 summary(mdl)
 
-fitt_value <- predict(mdl,newx = x[-train,])
+fitt_value <- predict(mdl, x[-train,])
 
 test_MSE = mean((y[-train] - fitt_value)^2)
 test_MSE
 
+# Define bootstrap function
+get_alpha <- function(data,index){
+  
+  temp_train <- index[1:291]
+  temp_test <- index[292:388]
+  temp_mdl <- lm(Sleep.efficiency ~ . , data = data, subset = temp_train)
+  temp_fitt_value <- predict(temp_mdl, data[temp_test,])
+  temp_test_MSE = mean((data$Sleep.efficiency[temp_test] - temp_fitt_value)^2)
+  return (temp_test_MSE)
+}
+
+# Use boot() function to perform bootstrap simulations
+res <- boot(x,get_alpha,R=1000)
+summary(res)
+pippo <- res[["t"]]
+hist(pippo)
+mean(pippo)
 
 # STEPWISE
 step.model <- stepAIC(mdl, direction = "both", 
@@ -91,6 +108,8 @@ ridge_test_MSE
 x = read.csv("Sleep_Efficiency.csv")
 x$Smoking.status <- as.numeric(as.factor(x$Smoking.status))
 x$Gender <- ifelse(x$Gender=="Male",1,0)
+
+x <- na.omit(x)
 x <- x[,-1]
 x <- x[,-3]
 x <- x[,-3]
@@ -100,7 +119,7 @@ x$Light.sleep.percentage <- x$Light.sleep.percentage/100 * x$Sleep.duration
 
 ##Metodi ad albero
 #albero semplice
-tree_model <- tree( x$Sleep.efficiency ~ . -x$Sleep.efficiency , data= x, split="gini", subset = train)
+tree_model <- tree( x$Sleep.efficiency ~ . -x$Sleep.efficiency , data= x, subset = train)
 #tree_model <- tree( x$Sleep.efficiency ~ . -x$Sleep.efficiency , data= x, subset = train)
 summary(tree_model)
 plot(tree_model)
@@ -111,8 +130,7 @@ tree_test_MSE = mean((x$Sleep.efficiency[-train] - tree_fit)^2)
 tree_test_MSE
 
 #bagging
-bagg_model <- randomForest(x$Sleep.efficiency ~ . ,data = x, subset = train,
-                           mtry = ncol(x)-1, importance = TRUE, replace = TRUE, ntree = 300)
+bagg_model <- randomForest(Sleep.efficiency ~ . ,data = x, subset = train, mtry = ncol(x)-1, importance = TRUE, replace = TRUE, ntree = 300)
 summary(bagg_model)
 
 plot(bagg_model)
