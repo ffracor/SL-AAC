@@ -30,8 +30,7 @@ y <- x$Sleep.efficiency
 # LINEAR REGRESSION
 set.seed(421)
 
-#train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE);
-train <- 
+train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE);
 
 mdl <- lm(Sleep.efficiency ~ . , data = x[train,])
 summary(mdl)
@@ -69,15 +68,6 @@ step_test_MSE = mean((y[-train] - fitt_value)^2)
 step_test_MSE
 step.model$coefficients
 
-
-fitt_value <- predict(model, x[-train,])
-test_MSE = mean((y[-train] - fitt_value)^2)
-test_MSE
-
-fitt_value1 <- predict(model1, x[-train,])
-test_MSE1 = mean((y[-train] - fitt_value1)^2)
-test_MSE1
-
 # Define bootstrap function
 get_alpha_SW <- function(data,index){
   
@@ -94,7 +84,7 @@ get_alpha_SW <- function(data,index){
 }
 
 # Use boot() function to perform bootstrap simulations
-res <- boot(x,get_alpha_SW,R=1000)
+res <- boot(x,get_alpha_SW,R=100)
 summary(res)
 pippo <- res[["t"]]
 hist(pippo)
@@ -123,22 +113,18 @@ summary(glm_model_lasso)
 glm_model_lasso$beta
 
 lasso_fit <- predict(glm_model_lasso,s = lasso_opt_lambda, newx = X[-train,])
-lasso_test_MSE = mean((y[-train] - lasso_fit)^2)
+lasso_test_MSE = mean((Y[-train] - lasso_fit)^2)
 lasso_test_MSE
+glm_model_lasso$beta
 
 #Bootstrap su lasso
 get_alpha_L <- function(data,index){
   
-  l = 10^seq(-2,3, length=50);
-  
-  X <- model.matrix(data$Sleep.efficiency ~ . , data = x)
-  Y <- data$Sleep.efficiency
-  
   temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = FALSE)
-  cv_lasso <- cv.glmnet(data[temp_train,],data$Sleep.efficiency[temp_train], alpha = 1, nfolds = 10, lambda = NULL);
-  lasso_opt_lambda = cv_lasso$lambda.min;
+  temp_cv_lasso <- cv.glmnet(data[temp_train,],data$Sleep.efficiency[temp_train], alpha = 1, nfolds = 10, lambda = NULL);
+  lasso_opt_lambda = temp_cv_lasso$lambda.min;
   
-  glm_model_lasso = glmnet(X[temp_train,],Y[temp_train],alpha = 1, lambda = lasso_opt_lambda)
+  glm_model_lasso = glmnet(X = data[temp_train,], Y = data$Sleep.efficiency[temp_train],alpha = 1, lambda = lasso_opt_lambda)
   
   
   temp_fitt_value <- predict(glm_model_lasso, s = lasso_opt_lambda, newx = data[-temp_train,])
@@ -148,7 +134,7 @@ get_alpha_L <- function(data,index){
 }
 
 # Use boot() function to perform bootstrap simulations
-res <- boot(x,get_alpha_L,R=500)
+res <- boot(x,get_alpha_L,R=100)
 summary(res)
 pippo <- res[["t"]]
 hist(pippo)
