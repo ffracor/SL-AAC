@@ -45,10 +45,9 @@ test_MSE
 get_alpha <- function(data,index){
   
   temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = FALSE)
-  temp_test <- data[-temp_train,]
   temp_mdl <- lm(Sleep.efficiency ~ . , data = data, subset = temp_train)
-  temp_fitt_value <- predict(temp_mdl, newx = data[temp_test,])
-  temp_test_MSE = mean((data$Sleep.efficiency[temp_test] - temp_fitt_value)^2)
+  temp_fitt_value <- predict(temp_mdl, newx = data[-temp_train,])
+  temp_test_MSE = mean((data$Sleep.efficiency[-temp_train] - temp_fitt_value)^2)
   return (temp_test_MSE)
 }
 
