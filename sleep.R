@@ -81,16 +81,15 @@ test_MSE1
 # Define bootstrap function
 get_alpha_SW <- function(data,index){
   
-  temp_train <- index[1:291]
-  temp_test <- index[292:388]
+  temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = FALSE)
   
   mdl <- lm(Sleep.efficiency ~ . , data = x[-train,])
   
   step.model <- stepAIC(mdl, direction = "both", 
                         trace = FALSE)
   
-  temp_fitt_value <- predict(step.model, newx =data[temp_test,])
-  step_test_MSE = mean((data$Sleep.efficiency[temp_test] - temp_fitt_value)^2)
+  temp_fitt_value <- predict(step.model, newx =data[-temp_train,])
+  step_test_MSE = mean((data$Sleep.efficiency[-temp_train] - temp_fitt_value)^2)
   return (step_test_MSE)
 }
 
@@ -135,17 +134,15 @@ get_alpha_L <- function(data,index){
   X <- model.matrix(data$Sleep.efficiency ~ . , data = x)
   Y <- data$Sleep.efficiency
   
-  temp_train <- index[1:291]
-  temp_test <- index[292:388]
-  
+  temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = FALSE)
   cv_lasso <- cv.glmnet(data[temp_train,],data$Sleep.efficiency[temp_train], alpha = 1, nfolds = 10, lambda = NULL);
   lasso_opt_lambda = cv_lasso$lambda.min;
   
   glm_model_lasso = glmnet(X[temp_train,],Y[temp_train],alpha = 1, lambda = lasso_opt_lambda)
   
   
-  temp_fitt_value <- predict(glm_model_lasso, s = lasso_opt_lambda, newx = data[temp_test,])
-  lasso_test_MSE = mean((data$Sleep.efficiency[temp_test] - temp_fitt_value)^2)
+  temp_fitt_value <- predict(glm_model_lasso, s = lasso_opt_lambda, newx = data[-temp_train,])
+  lasso_test_MSE = mean((data$Sleep.efficiency[-temp_train] - temp_fitt_value)^2)
   
   return (lasso_test_MSE)
 }
