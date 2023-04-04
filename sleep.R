@@ -21,23 +21,22 @@ x$Gender <- ifelse(x$Gender=="Male",1,0)
 x <- x[,-1]
 x <- x[,-3]
 x <- x[,-3]
-
+x <- x[,-7] 
 sum(is.na(x))
 x <- na.omit(x)
 y <- x$Sleep.efficiency
 
 
 # LINEAR REGRESSION
-set.seed(42)
+set.seed(421)
 
 #train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE);
-train <- sample(nrow(x), floor(nrow(x) * 0.75), replace = FALSE)
+train <- 
 
-
-mdl <- lm(Sleep.efficiency ~ . , data = x[-train,])
+mdl <- lm(Sleep.efficiency ~ . , data = x[train,])
 summary(mdl)
 
-fitt_value <- predict(mdl, x[-train,])
+fitt_value <- predict(mdl, newx = x[-train,])
 
 test_MSE = mean((y[-train] - fitt_value)^2)
 test_MSE
@@ -45,30 +44,70 @@ test_MSE
 # Define bootstrap function
 get_alpha <- function(data,index){
   
-  temp_train <- index[1:291]
-  temp_test <- index[292:388]
+  temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = FALSE)
+  temp_test <- data[-temp_train,]
   temp_mdl <- lm(Sleep.efficiency ~ . , data = data, subset = temp_train)
-  temp_fitt_value <- predict(temp_mdl, data[temp_test,])
+  temp_fitt_value <- predict(temp_mdl, newx = data[temp_test,])
   temp_test_MSE = mean((data$Sleep.efficiency[temp_test] - temp_fitt_value)^2)
   return (temp_test_MSE)
 }
 
 # Use boot() function to perform bootstrap simulations
 res <- boot(x,get_alpha,R=1000)
+
 summary(res)
 pippo <- res[["t"]]
 hist(pippo)
 mean(pippo)
 
+
 # STEPWISE
 step.model <- stepAIC(mdl, direction = "both", 
                       trace = FALSE)
 summary(step.model)
-fitt_value <- predict(step.model,newx = x[-train,])
+fitt_value <- predict(step.model, newx = x[-train,])
 step_test_MSE = mean((y[-train] - fitt_value)^2)
 step_test_MSE
+step.model$coefficients
 
-# LASSO REGRESSION
+
+fitt_value <- predict(model, x[-train,])
+test_MSE = mean((y[-train] - fitt_value)^2)
+test_MSE
+
+fitt_value1 <- predict(model1, x[-train,])
+test_MSE1 = mean((y[-train] - fitt_value1)^2)
+test_MSE1
+
+# Define bootstrap function
+get_alpha_SW <- function(data,index){
+  
+  temp_train <- index[1:291]
+  temp_test <- index[292:388]
+  
+  mdl <- lm(Sleep.efficiency ~ . , data = x[-train,])
+  
+  step.model <- stepAIC(mdl, direction = "both", 
+                        trace = FALSE)
+  
+  temp_fitt_value <- predict(step.model, newx =data[temp_test,])
+  step_test_MSE = mean((data$Sleep.efficiency[temp_test] - temp_fitt_value)^2)
+  return (step_test_MSE)
+}
+
+# Use boot() function to perform bootstrap simulations
+res <- boot(x,get_alpha_SW,R=1000)
+summary(res)
+pippo <- res[["t"]]
+hist(pippo)
+mean(pippo)
+
+
+
+
+
+
+#LASSO REGRESSION
 l = 10^seq(-2,3, length=50);
 
 set.seed(42);
@@ -88,6 +127,41 @@ glm_model_lasso$beta
 lasso_fit <- predict(glm_model_lasso,s = lasso_opt_lambda, newx = X[-train,])
 lasso_test_MSE = mean((y[-train] - lasso_fit)^2)
 lasso_test_MSE
+
+#Bootstrap su lasso
+get_alpha_L <- function(data,index){
+  
+  l = 10^seq(-2,3, length=50);
+  
+  X <- model.matrix(data$Sleep.efficiency ~ . , data = x)
+  Y <- data$Sleep.efficiency
+  
+  temp_train <- index[1:291]
+  temp_test <- index[292:388]
+  
+  cv_lasso <- cv.glmnet(data[temp_train,],data$Sleep.efficiency[temp_train], alpha = 1, nfolds = 10, lambda = NULL);
+  lasso_opt_lambda = cv_lasso$lambda.min;
+  
+  glm_model_lasso = glmnet(X[temp_train,],Y[temp_train],alpha = 1, lambda = lasso_opt_lambda)
+  
+  
+  temp_fitt_value <- predict(glm_model_lasso, s = lasso_opt_lambda, newx = data[temp_test,])
+  lasso_test_MSE = mean((data$Sleep.efficiency[temp_test] - temp_fitt_value)^2)
+  
+  return (lasso_test_MSE)
+}
+
+# Use boot() function to perform bootstrap simulations
+res <- boot(x,get_alpha_L,R=500)
+summary(res)
+pippo <- res[["t"]]
+hist(pippo)
+mean(pippo)
+
+
+
+
+
 
 # RIDGE REGRESSION
 cv_ridge <- cv.glmnet(X[train,],Y[train], alpha = 0, nfolds = 10, lambda = NULL);
