@@ -168,16 +168,39 @@ ridge_fit <- predict(glm_model_ridge, s = ridge_opt_lambda , newx = X[-train,])
 ridge_test_MSE = mean((y[-train] - ridge_fit)^2)
 ridge_test_MSE
 
+get_alpha_L <- function(data,index){
+  
+  temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = FALSE)
+  
+  temp_cv_ridge <- cv.glmnet(data[temp_train,], Y[temp_train], alpha = 0, nfolds = 10, lambda = NULL);
+  ridge_opt_lambda = temp_cv_ridge$lambda.min;
+  
+  glm_model_ridge = glmnet(data[temp_train,], Y[temp_train],alpha = 0, lambda = ridge_opt_lambda)
+  
+  
+  temp_fitt_value <- predict(glm_model_ridge, s = ridge_opt_lambda, newx = data[-temp_train,])
+  ridge_test_MSE = mean((Y[-temp_train] - temp_fitt_value)^2)
+  
+  return (ridge_test_MSE)
+  
+  #return (c(lasso_opt_lambda, lasso_test_MSE))
+}
+
+# Use boot() function to perform bootstrap simulations
+res <- boot(X,get_alpha_L,R=100)
+summary(res)
+
+pippo <- res[["t"]]
+#hist(pippo[,2])
+hist(pippo)
+#mean(pippo[,2])
+mean(pippo)
 
 
 
 
 
-
-
-
-
-#parte 2
+#PARTE SUGLI ALBERI
 
 x = read.csv("Sleep_Efficiency.csv")
 x$Smoking.status <- as.numeric(as.factor(x$Smoking.status))
@@ -187,12 +210,13 @@ x <- na.omit(x)
 x <- x[,-1]
 x <- x[,-3]
 x <- x[,-3]
-x$REM.sleep.percentage <- x$Sleep.duration * x$REM.sleep.percentage/100
-x$Deep.sleep.percentage <- x$Deep.sleep.percentage/100 * x$Sleep.duration
-x$Light.sleep.percentage <- x$Light.sleep.percentage/100 * x$Sleep.duration
+#x$REM.sleep.percentage <- x$Sleep.duration * x$REM.sleep.percentage/100
+#x$Deep.sleep.percentage <- x$Deep.sleep.percentage/100 * x$Sleep.duration
+#x$Light.sleep.percentage <- x$Light.sleep.percentage/100 * x$Sleep.duration
 
 ##Metodi ad albero
-#albero semplice
+
+#ALBERO SEMPLICE
 tree_model <- tree( x$Sleep.efficiency ~ . -x$Sleep.efficiency , data= x, subset = train)
 #tree_model <- tree( x$Sleep.efficiency ~ . -x$Sleep.efficiency , data= x, subset = train)
 summary(tree_model)
@@ -203,7 +227,26 @@ tree_fit <- predict(tree_model, newdata = x[-train,])
 tree_test_MSE = mean((x$Sleep.efficiency[-train] - tree_fit)^2)
 tree_test_MSE
 
-#bagging
+#Boostrap su albero semplice
+get_alpha_tree <- function(data,index){
+  
+  temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = FALSE)
+  temp_tree_model <- tree( x$Sleep.efficiency ~ . -x$Sleep.efficiency , data= x, subset = train)
+  temp_fitt_value <- predict(temp_tree_model, data[-temp_train,])
+  temp_test_MSE = mean((data$Sleep.efficiency[-temp_train] - temp_fitt_value)^2)
+  return (temp_test_MSE)
+}
+
+res <- boot(x,get_alpha_tree,R=100) #attenzione 'x' minuscola in questo caso
+pippo <- res[["t"]]
+#hist(pippo[,2])
+hist(pippo)
+#mean(pippo[,2])
+mean(pippo)
+
+
+
+#BAGGING
 bagg_model <- randomForest(Sleep.efficiency ~ . ,data = x, subset = train, mtry = ncol(x)-1, importance = TRUE, replace = TRUE, ntree = 300)
 summary(bagg_model)
 
@@ -215,7 +258,25 @@ abline(0,1)
 bagg_test_MSE = mean((x$Sleep.efficiency[-train] - bagg_fit)^2)
 bagg_test_MSE
 
-#random-forest
+#Bootstrap su bagging
+get_alpha_bagg <- function(data,index){
+  
+  temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = FALSE)
+  temp_bagg_model <- randomForest(Sleep.efficiency ~ . ,data = x, subset = train, mtry = ncol(x)-1, importance = TRUE, replace = TRUE, ntree = 100)
+  temp_fitt_value <- predict( temp_bagg_model, data[-temp_train,])
+  temp_test_MSE = mean((data$Sleep.efficiency[-temp_train] - temp_fitt_value)^2)
+  return (temp_test_MSE)
+}
+
+res <- boot(x,get_alpha_bagg,R=100) #attenzione 'x' minuscola in questo caso
+pippo <- res[["t"]]
+
+hist(pippo)
+mean(pippo)
+
+
+
+#RANDOM FOREST
 rand_model <- randomForest(x$Sleep.efficiency ~ . ,data = x, subset = train,
                            mtry = floor(sqrt(ncol(x)-1)), importance = TRUE, replace = TRUE, ntree = 300)
 summary(rand_model)
