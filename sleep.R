@@ -97,6 +97,10 @@ step_test_MSE = mean((y[-train] - fitt_value)^2)
 step_test_MSE
 step.model$coefficients
 
+#inizializzo il vettore per il conteggio
+col_name <- c("(Intercept)",colnames(x))
+contatore_vect_SW <- setNames(numeric(length(col_name)), col_name)
+dim = length(col_name)
 
 
 # Define bootstrap function
@@ -111,11 +115,21 @@ get_alpha_SW <- function(data,index){
   
   temp_fitt_value <- predict(step.model, data[-temp_train,])
   step_test_MSE = mean((data$Sleep.efficiency[-temp_train] - temp_fitt_value)^2)
+  
+  #parte per conteggio delle comparse
+  coeff_stimati <- names(step.model$coefficients)
+  i=0
+  for (i in 1:dim){
+    if(names(contatore_vect_SW[i]) %in% coeff_stimati){
+      contatore_vect_SW[i] <<- contatore_vect_SW[i] + 1
+    }
+  }
+  
   return (step_test_MSE)
 }
 
 # Use boot() function to perform bootstrap simulations
-res <- boot(x,get_alpha_SW,R=100)
+res <- boot(x,get_alpha_SW,R=5)
 summary(res)
 pippo <- res[["t"]]
 hist(pippo)
@@ -148,6 +162,9 @@ lasso_test_MSE = mean((Y[-train] - lasso_fit)^2)
 lasso_test_MSE
 glm_model_lasso$beta
 
+#inizializzazione per conteggio lasso 
+contatore_vect_LASSO <- setNames(numeric(length(col_name)), col_name)
+
 
 #Bootstrap su lasso
 get_alpha_L <- function(data,index){
@@ -163,13 +180,21 @@ get_alpha_L <- function(data,index){
   temp_fitt_value <- predict(glm_model_lasso, s = lasso_opt_lambda, newx = data[-temp_train,])
   lasso_test_MSE = mean((Y[-temp_train] - temp_fitt_value)^2)
   
+  coeff_stimati <- names(glm_model_lasso$beta[, 1][glm_model_lasso$beta[, 1] != 0])
+  i=0
+  for (i in 1:dim){
+    if(names(contatore_vect_LASSO[i]) %in% coeff_stimati){
+      contatore_vect_LASSO[i] <<- contatore_vect_LASSO[i] + 1
+    }
+  }
+  
   return (lasso_test_MSE)
   
   #return (c(lasso_opt_lambda, lasso_test_MSE))
 }
 
 # Use boot() function to perform bootstrap simulations
-res <- boot(X,get_alpha_L,R=1000)
+res <- boot(X,get_alpha_L,R=50)
 summary(res)
 
 pippo <- res[["t"]]
