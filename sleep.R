@@ -1,40 +1,58 @@
+# import libraries
 library(tidyverse)
 library(caret)
 library(leaps)
 library("MASS")
 library("glmnet")
-
 library ( ISLR2 )
 library ( boot )
-
 library(tree)
 library ( randomForest )
 library ( gbm )
+library(recipes)
 
+# clear all environment variable
+rm(list = ls()) 
 
-rm(list = ls()) # clear all environment variable
 
 # PREPROCESSING
+
+# Read Dataset from csv file
 x = read.csv("Sleep_Efficiency.csv")
+
+# creating dummy variable for gender and smoking status
 x$Smoking.status <- as.numeric(as.factor(x$Smoking.status))
 x$Gender <- ifelse(x$Gender=="Male",1,0)
+
+# removing useless column
 x <- x[,-1]
 x <- x[,-3]
 x <- x[,-3]
-x <- x[,-7] 
+x <- x[,-7]
+
+# modifing rem and deep sleep percentage to their actual time value
 x$REM.sleep.percentage <- x$Sleep.duration * x$REM.sleep.percentage/100
 x$Deep.sleep.percentage <- x$Deep.sleep.percentage/100 * x$Sleep.duration
+colnames(x)[5] <- "REM.sleep.duration"
+colnames(x)[6] <- "Deep.sleep.duration"
+
+# omitting NA and creating x and y variables
 x <- na.omit(x)
 y <- x$Sleep.efficiency
 
+# saving number of original columns
 dim = ncol(x)
 
-for (i in 1:dim){
-  if(!(length(unique(x[,i]))==2) & (i!=4)){
-    x[, ncol(x)+1] = x[,i]^2
-    #x[, ncol(x)+1] = log(x[,i])
+# adding interaction variables and squares
+for (i in 1:dim) {
+  for (j in i:dim) {
+    if(!(length(unique(x[,i]))==2 & (i==j)) & (i!=4) & (j!=4)) {
+      x[, ncol(x)+1] <- x[,i]*x[,j]
+      colnames(x)[ncol(x)] <- paste(colnames(x)[i],colnames(x)[j], sep = "")
+    }
   }
 }
+
 
 
 # LINEAR REGRESSION
@@ -151,7 +169,7 @@ get_alpha_L <- function(data,index){
 }
 
 # Use boot() function to perform bootstrap simulations
-res <- boot(X,get_alpha_L,R=100)
+res <- boot(X,get_alpha_L,R=1000)
 summary(res)
 
 pippo <- res[["t"]]
@@ -159,9 +177,6 @@ pippo <- res[["t"]]
 hist(pippo)
 #mean(pippo[,2])
 mean(pippo)
-
-
-
 
 
 # RIDGE REGRESSION
@@ -197,7 +212,7 @@ get_alpha_L <- function(data,index){
 }
 
 # Use boot() function to perform bootstrap simulations
-res <- boot(X,get_alpha_L,R=100)
+res <- boot(X,get_alpha_L,R=1000)
 summary(res)
 
 pippo <- res[["t"]]
