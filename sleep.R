@@ -80,7 +80,7 @@ get_alpha <- function(data,index){
 }
 
 # Use boot() function to perform bootstrap simulations
-res <- boot(x,get_alpha,R=1000)
+res <- boot(x,get_alpha,R=10)
 
 summary(res)
 pippo <- res[["t"]]
@@ -108,7 +108,7 @@ get_alpha_SW <- function(data,index){
   
   temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = FALSE)
   
-  mdl <- lm(Sleep.efficiency ~ . , data = x[-train,])
+  mdl <- lm(Sleep.efficiency ~ . , data = x[temp_train,])
   
   step.model <- stepAIC(mdl, direction = "both", 
                         trace = FALSE)
@@ -194,7 +194,7 @@ get_alpha_L <- function(data,index){
 }
 
 # Use boot() function to perform bootstrap simulations
-res <- boot(X,get_alpha_L,R=50)
+res <- boot(X,get_alpha_L,R=10)
 summary(res)
 
 pippo <- res[["t"]]
