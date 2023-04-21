@@ -10,6 +10,11 @@ library(tree)
 library ( randomForest )
 library ( gbm )
 library(recipes)
+library("tseries")
+
+install.packages('tseries')
+library(tseries)
+
 
 # clear all environment variable
 rm(list = ls()) 
@@ -69,6 +74,9 @@ fitt_value <- predict.lm(mdl, x[-train,])
 
 test_MSE = mean((y[-train] - fitt_value)^2)
 test_MSE
+
+jarque.bera.test((y[-train] - fitt_value))
+hist((y[-train] - fitt_value))
 
 # Define bootstrap function
 get_alpha <- function(data,index){
