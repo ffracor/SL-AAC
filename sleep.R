@@ -22,6 +22,7 @@ x = read.csv("Sleep_Efficiency.csv")
 
 # creating dummy variable for gender and smoking status
 x$Smoking.status <- as.numeric(as.factor(x$Smoking.status))
+x$Smoking.status <- ifelse(x$Smoking.status==2,1,0)
 x$Gender <- ifelse(x$Gender=="Male",1,0)
 
 # removing useless column
@@ -96,6 +97,7 @@ fitt_value <- predict(step.model,  x[-train,])
 step_test_MSE = mean((y[-train] - fitt_value)^2)
 step_test_MSE
 step.model$coefficients
+
 
 #inizializzo il vettore per il conteggio
 col_name <- c("(Intercept)",colnames(x))
