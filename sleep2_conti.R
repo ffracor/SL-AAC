@@ -11,8 +11,6 @@ library ( randomForest )
 library ( gbm )
 library(recipes)
 library("tseries")
-
-install.packages('tseries')
 library(tseries)
 
 
@@ -135,10 +133,25 @@ get_alpha_L <- function(data,index){
   return (c(lasso_opt_lambda, lasso_test_MSE))
 }
 
+
 # Use boot() function to perform bootstrap simulations
 res_lasso <- boot(X,get_alpha_L,R=2000, parallel = "multicore")
 MSE_lasso <- res_lasso[["t"]][,2]
 lamda_lasso <- res_lasso[["t"]][,1]
+opt_lambda_lasso <- mean(lamda_lasso)
+mean_lasso <- mean(MSE_lasso)
+mean_lasso
+
+
+glm_model_lasso = glmnet(X, Y,alpha = 1, lambda = opt_lambda_lasso)
+glm_model_lasso$beta
+contatore_vect_LASSO
+lasso_table <- table(glm_model_lasso$beta)
+hist(lamda_lasso)
+ic = c(quantile(lamda_lasso, .025), quantile(lamda_lasso, .975))
+glm_model_lasso = glmnet(X, Y,alpha = 1, lambda = quantile(lamda_lasso, .975))
+glm_model_lasso$beta
+
 
 #######################################################################################
 
