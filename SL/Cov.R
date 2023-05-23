@@ -77,14 +77,31 @@ y_test <- x[-train,4]
 isDentro <- numeric(ncol(res_predizioni[["t"]]))
 
 for (k in 1:ncol(res_predizioni[["t"]])){
-  IC_up_predictions[k] <- quantile(res_predizioni[["t"]][,k], 0.995)
-  IC_down_predictions[k] <- quantile(res_predizioni[["t"]][,k], 0.005)
+  IC_up_predictions[k] <- quantile(res_predizioni[["t"]][,k], 0.975)
+  IC_down_predictions[k] <- quantile(res_predizioni[["t"]][,k], 0.025)
   medie_pre[k] = mean(res_predizioni[["t"]][,k])
   isDentro[k] <- ifelse(y_test[k] >= IC_down_predictions[k] && y_test[k] <= IC_up_predictions[k], 1, 0)
 }
 
+#pnormGC(0.975, region = 'below', mean = 0, std = 1, graph = TRUE)
+z = qnorm(0.975, mean=0, sd=1)
+
+IC_up_predictions_2 <- numeric(nrow(x[-train,]))
+IC_down_predictions_2 <- numeric(nrow(x[-train,]))
+isDentro_2 <- numeric(length(rand_fit))
+
+for (k in 1:length(rand_fit)){
+
+  IC_up_predictions_2[k] <- rand_fit[k] + z*sqrt(MSE_rand)
+  IC_down_predictions_2[k] <- rand_fit[k] - z*sqrt(MSE_rand)
+  isDentro_2[k] <- ifelse(y_test[k] >= IC_down_predictions_2[k] && y_test[k] <= IC_up_predictions_2[k], 1, 0)
+}
+
 #media del valore IC up IC down
 tabella_pred <- data.frame(medie_pre,  IC_down_predictions, y_test, IC_up_predictions,isDentro)
+
+#media del valore IC up IC down
+tabella_pred_2 <- data.frame(rand_fit,  IC_down_predictions_2, y_test, IC_up_predictions_2,isDentro_2)
 
   
   
