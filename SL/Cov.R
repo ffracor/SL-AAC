@@ -43,7 +43,7 @@ y <- x$Sleep.efficiency
 # saving number of original columns
 dim = ncol(x)
 
-n = 2000
+n = 500
 
 set.seed(42)
 train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE);
@@ -57,6 +57,21 @@ plot(rand_fit, x$Sleep.efficiency[-train])
 abline(0,1)
 MSE_rand = mean((x$Sleep.efficiency[-train] - rand_fit)^2)
 MSE_rand
+sqrt(MSE_rand)
+
+#calcolo dell'R^2
+D_tot = sum((x$Sleep.efficiency[-train] - mean(x$Sleep.efficiency[-train]))^2)
+D_res = sum((x$Sleep.efficiency[-train] - rand_fit)^2)
+r_2 = 1- D_res/D_tot
+
+#funzione calcolo R^2
+calcoloR_2 <- function(y, y_hat){
+  D_tot = sum((y - mean(y))^2)
+  D_res = sum((y - y_hat)^2)
+  return( 1- D_res/D_tot)
+}
+
+
 
 get_predictors_IC <- function(data, index)
 {
@@ -69,6 +84,9 @@ get_predictors_IC <- function(data, index)
   return(temp_fit)
 }
 res_predizioni <- boot(x[train,], get_predictors_IC, R=n)
+
+
+
 
 IC_up_predictions <- numeric(nrow(x[-train,]))
 IC_down_predictions <- numeric(nrow(x[-train,]))
@@ -91,7 +109,6 @@ IC_down_predictions_2 <- numeric(nrow(x[-train,]))
 isDentro_2 <- numeric(length(rand_fit))
 
 for (k in 1:length(rand_fit)){
-
   IC_up_predictions_2[k] <- rand_fit[k] + z*sqrt(MSE_rand)
   IC_down_predictions_2[k] <- rand_fit[k] - z*sqrt(MSE_rand)
   isDentro_2[k] <- ifelse(y_test[k] >= IC_down_predictions_2[k] && y_test[k] <= IC_up_predictions_2[k], 1, 0)
@@ -103,7 +120,6 @@ tabella_pred <- data.frame(medie_pre,  IC_down_predictions, y_test, IC_up_predic
 #media del valore IC up IC down
 tabella_pred_2 <- data.frame(rand_fit,  IC_down_predictions_2, y_test, IC_up_predictions_2,isDentro_2)
 
-  
   
   
   

@@ -40,6 +40,13 @@ x <- x[,-7]
 x <- na.omit(x)
 y <- x$Sleep.efficiency
 
+#analisi preliminare delle variabili
+var_dati <- setNames(numeric(length(colnames(x))), colnames(x))
+for(i in 1:length(var_dati)){
+  var_dati[i] <- var(x[,i])
+  hist(x[,i], main=names(var_dati)[i], sub="")
+}
+
 # saving number of original columns
 dim = ncol(x)
 
@@ -48,6 +55,12 @@ n = 100
 set.seed(42)
 
 train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE);
+
+calcoloR_2 <- function(y, y_hat){
+  D_tot = sum((y - mean(y))^2)
+  D_res = sum((y - y_hat)^2)
+  return( 1- D_res/D_tot)
+}
 
 # STEPWISE
 #inizializzo il vettore per il conteggio
