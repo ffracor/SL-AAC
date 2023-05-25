@@ -49,7 +49,7 @@ set.seed(42)
 train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE);
 
 rand_model <- randomForest(x$Sleep.efficiency ~ . ,data = x, subset = train,
-                           mtry = floor(sqrt(ncol(x)-1)), importance = TRUE, replace = TRUE, ntree = 200)
+                           mtry = 5, importance = TRUE, replace = TRUE, ntree = 200)
 
 plot(rand_model, main="Random forest model")
 rand_fit <- predict(rand_model, newdata = x[-train,])
@@ -63,6 +63,7 @@ sqrt(MSE_rand)
 D_tot = sum((x$Sleep.efficiency[-train] - mean(x$Sleep.efficiency[-train]))^2)
 D_res = sum((x$Sleep.efficiency[-train] - rand_fit)^2)
 r_2 = 1- D_res/D_tot
+r_2
 
 #funzione calcolo R^2
 calcoloR_2 <- function(y, y_hat){
@@ -72,20 +73,51 @@ calcoloR_2 <- function(y, y_hat){
 }
 
 
-
-get_predictors_IC <- function(data, index)
-{
-  temp_train <- sample(nrow(data), floor(nrow(data)), replace = TRUE)
-  temp_rand_model <- randomForest(Sleep.efficiency ~ . ,data = data, subset = temp_train,
-                                  mtry = floor(sqrt(ncol(x)-1)), importance = TRUE, replace = TRUE, ntree = 200)
+get_alpha_tree <- function(data,index){
   
-  temp_fit <- predict(temp_rand_model, newdata = x[-train,])
+  temp_train <- sample(train, length(train), replace = TRUE)
   
-  return(temp_fit)
+  temp_features <- sample(10, 5, replace = FALSE)
+  temp_features[temp_features==4] <- 11
+  
+  temp_tree_model <- tree(data$Sleep.efficiency ~ . , data= data[,temp_features], subset= temp_train, split = 'gini')
+  
+  temp_fitt_value <- predict(temp_tree_model, newdata = data[-train, temp_features])
+  
+  #temp_test_MSE = mean((data$Sleep.efficiency[-train] - temp_fitt_value)^2)
+  
+  return (temp_fitt_value)
 }
-res_predizioni <- boot(x[train,], get_predictors_IC, R=n)
+
+#res <- boot(x,get_alpha_tree,R=1000) #attenzione 'x' minuscola in questo caso
 
 
+res_predizioni_3 <- boot(x,get_alpha_tree,R=2000) #attenzione 'x' minuscola in questo caso
+res_predizioni_3[["t"]]
+hist(res[["t"]][,1])
+
+IC_up_predictions_3 <- numeric(nrow(x[-train,]))
+IC_down_predictions_3 <- numeric(nrow(x[-train,]))
+medie_pre_3 <- numeric(length(IC_up_predictions_3))
+y_test_3 <- x[-train,4]
+isDentro_3 <- numeric(ncol(res_predizioni_3[["t"]]))
+
+for (k in 1:ncol(res_predizioni_3[["t"]])){
+  IC_up_predictions_3[k] <- quantile(res_predizioni_3[["t"]][,k], 0.975)
+  IC_down_predictions_3[k] <- quantile(res_predizioni_3[["t"]][,k], 0.025)
+  medie_pre_3[k] = mean(res_predizioni_3[["t"]][,k])
+  isDentro_3[k] <- ifelse(y_test_3[k] >= IC_down_predictions_3[k] && y_test_3[k] <= IC_up_predictions_3[k], 1, 0)
+}
+
+#media del valore IC up IC down
+tabella_pred_3 <- data.frame(rand_fit,  IC_down_predictions_3, y_test_3, IC_up_predictions_3,isDentro_3)
+sum(isDentro_3)
+
+
+# non utilizzatre bootstrap. ma inserire degli alberi normali di tipo 2000 e abbiamo una stima puntuale per ogni punto
+# così abbiamo una distribuzione per ogni punto e facciamo il quantile su questa distribuzione.
+
+# altrimenti un random forest in cui abbiamo una sola stima della media non abbiamo una distribuzione
 
 
 IC_up_predictions <- numeric(nrow(x[-train,]))
