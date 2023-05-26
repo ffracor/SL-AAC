@@ -1,4 +1,6 @@
 # import libraries
+install.packages("corrplot")
+install.packages("gridExtra")
 library(tidyverse)
 library(caret)
 library(leaps)
@@ -15,6 +17,10 @@ library(tseries)
 library(xtable)
 library(groupdata2)
 library(tseries)
+library(corrplot)
+library(gridExtra)
+library(ggplot2)
+
 
 # clear all environment variable 
 rm(list = ls()) 
@@ -46,6 +52,24 @@ for(i in 1:length(var_dati)){
   var_dati[i] <- var(x[,i])
   hist(x[,i], main=names(var_dati)[i], sub="")
 }
+
+corr_matrix <- cor(x)
+corrplot(corr_matrix, type="upper", order="hclust")
+
+#istorammi
+
+p1<-hist(x$Age, main="" , xlab = "Age", ylab= "Frequency")
+p2<-barplot(table(x$Gender), main="" , xlab = "Gender", ylab= "Frequency")
+p3<-barplot(table(x$Sleep.duration), main="" , xlab = "Sleep Duration", ylab= "Frequency")
+p4<-hist(x$Sleep.efficiency, main="" , xlab = "Sleep Efficiency", ylab= "Frequency")
+p5<-hist(x$REM.sleep.percentage, main="" , xlab = "REM Sleep Percentage", ylab= "Frequency")
+p6<-hist(x$Deep.sleep.percentage, main="" , xlab = "Deep Sleep Percentage", ylab= "Frequency")
+p7<-barplot(table(x$Awakenings), main="" , xlab = "Awakenings", ylab= "Frequency")
+p8 <- barplot(table(x$Caffeine.consumption), main="" , xlab = "Caffeine Consumption", ylab= "Frequency")
+p9<-barplot(table(x$Alcohol.consumption), main="" , xlab = "Alcohol Consumption", ylab= "Frequency")
+p10<-barplot(table(x$Smoking.status), main="" , xlab = "Smoking Status", ylab= "Frequency")
+p11<-barplot(table(x$Exercise.frequency), main="" , xlab = "Exercise Frequency", ylab= "Frequency")
+
 
 # saving number of original columns
 dim = ncol(x)
@@ -362,7 +386,7 @@ y <- as.factor(x$Awakenings)
 poissmdl <- sm.poisson.bootstrap(x = x, y = y, h = 0.5)
 
 
-#contrasts(Bikeshare$hr)
+#contrasts
 pois <- glm(Awakenings ~ . , data = xeq , family = poisson)
 summary(pois)
 pred <- predict(pois, type = "response"); #predict of lambda
