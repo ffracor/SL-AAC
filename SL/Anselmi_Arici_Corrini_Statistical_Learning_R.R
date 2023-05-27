@@ -58,20 +58,23 @@ corrplot(corr_matrix, type="upper", order="hclust")
 
 #istorammi
 
-par(mfrow = c(3,3))
-p1<-hist(x$Age, main="" , xlab = "Age [years]", ylab= "Frequency")
+par(mfrow = c(2,3))
 p2<-barplot(table(x$Gender), main="" , xlab = "Gender", ylab= "Frequency")
 p3<-barplot(table(x$Sleep.duration), main="" , xlab = "Sleep Duration [h]", ylab= "Frequency")
-
-p5<-hist(x$REM.sleep.percentage, main="" , xlab = "REM Sleep Percentage [%]", ylab= "Frequency")
-p6<-hist(x$Deep.sleep.percentage, main="" , xlab = "Deep Sleep Percentage [%]", ylab= "Frequency")
-
 p8 <- barplot(table(x$Caffeine.consumption), main="" , xlab = expression(paste("Caffeine Consumption [", mu, "g/day]")), ylab= "Frequency")
 p9<-barplot(table(x$Alcohol.consumption), main="" , xlab = expression(paste("Alcohol Consumption [oz/day]")), ylab= "Frequency")
 p10<-barplot(table(x$Smoking.status), main="" , xlab = "Smoking Status", ylab= "Frequency")
 p11<-barplot(table(x$Exercise.frequency), main="" , xlab = "Exercise Frequency", ylab= "Frequency")
-p4<-hist(x$Sleep.efficiency, main="" , xlab = "Sleep Efficiency", ylab= "Frequency")
+
+
+par(mfrow = c(1,3))
+p1<-hist(x$Age, main="" , xlab = "Age [years]", ylab= "Frequency")
+p5<-hist(x$REM.sleep.percentage, main="" , xlab = "REM Sleep Percentage [%]", ylab= "Frequency")
+p6<-hist(x$Deep.sleep.percentage, main="" , xlab = "Deep Sleep Percentage [%]", ylab= "Frequency")
+
+par(mfrow = c(1,2))
 p7<-barplot(table(x$Awakenings), main="" , xlab = "Awakenings", ylab= "Frequency")
+p4<-hist(x$Sleep.efficiency, main="" , xlab = "Sleep Efficiency", ylab= "Frequency")
 
 # saving number of original columns
 dim = ncol(x)
@@ -356,7 +359,7 @@ get_alpha_POISS <- function(data,index){
   temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = TRUE)
   
   pois_mdl <- glm(Awakenings ~ . , data = x[temp_train,] , family = poisson)
-  
+ # print(pois_mdl$coefficients)
   step_pois <- stepAIC(pois_mdl, direction = "both", 
                         trace = FALSE)
   
@@ -368,13 +371,48 @@ get_alpha_POISS <- function(data,index){
       contatore_vect_POISS[i] <<- contatore_vect_POISS[i] + 1
     }
   }
+  
+  return(pois_mdl$coefficients)
 }
 
+n = 1000
 # Use boot() function to perform bootstrap simulations
-res_sw <- boot(x,get_alpha_POISS,R = n, parallel = "multicore")
+coefficients_sw_poiss <- boot(x,get_alpha_POISS,R = n, parallel = "multicore")
+
+#calcolo degli intervalli di confidenza
+IC_up_predictions_poiss <- numeric(ncol(x))
+IC_down_predictions_poiss <- numeric(ncol(x))
+medie_coeff_poiss <- numeric(length(IC_up_predictions_poiss))
+
+col_name <- names(coefficients_sw_poiss[["t0"]])
+medie_coeff_poiss <- setNames(numeric(length(col_name)), col_name)
+
+isSignificativo_poiss<- setNames(numeric(length(col_name)), col_name)
+
+for (k in 1:ncol(coefficients_sw_poiss[["t"]])){
+  IC_up_predictions_poiss[k] <- quantile(coefficients_sw_poiss[["t"]][,k], 0.995)
+  IC_down_predictions_poiss[k] <- quantile(coefficients_sw_poiss[["t"]][,k], 0.005)
+  medie_coeff_poiss[k] <- mean(coefficients_sw_poiss[["t"]][,k])
+  isSignificativo_poiss[k] <- ifelse(IC_down_predictions_poiss[k]*IC_up_predictions_poiss[k] >=0, 1, 0)
+}
+
+tabella_pred <- data.frame(medie_coeff_poiss,  IC_down_predictions_poiss, IC_up_predictions_poiss, isSignificativo_poiss)
+
+stepwise_significativi_poiss <- names(isSignificativo_poiss[isSignificativo_poiss == 1])
+#stepwise_significativi_poiss <- stepwise_significativi_poiss[-1]
+stepwise_significativi_poiss <- stepwise_significativi_poiss[-1]
+
+#reformulate ha problemi con l'intercetta
+stepwise_final_model_poiss <- glm(reformulate(stepwise_significativi_poiss, "Awakenings"), data=x, family = 'poisson')
+summary(stepwise_final_model_poiss)
+
+pred <- predict(stepwise_final_model_poiss,type="response")
+plot(x$Awakenings,pred)
+
+####### FINE PARTE SENZA STEPWISE (nomi della variabili da sitemare)
 
 stepwise_significativi_poiss <- names(contatore_vect_POISS[contatore_vect_POISS > n/2])
-stepwise_significativi_poiss <- stepwise_significativi_poiss[-1]
+stepwise_significativi_poiss <- stepwise_significativi_poiss[-1] #non ho capitto cosa faccia
 
 stepwise_final_model_poiss <- glm(reformulate(stepwise_significativi_poiss, "Awakenings"), data=x, family = 'poisson')
 summary(stepwise_final_model_poiss)
