@@ -58,24 +58,25 @@ corrplot(corr_matrix, type="upper", order="hclust")
 
 #istorammi
 
-par(mfrow = c(3,2))
+par(mfrow = c(3,3))
 p1<-hist(x$Age, main="" , xlab = "Age [years]", ylab= "Frequency")
 p2<-barplot(table(x$Gender), main="" , xlab = "Gender", ylab= "Frequency")
 p3<-barplot(table(x$Sleep.duration), main="" , xlab = "Sleep Duration [h]", ylab= "Frequency")
-p4<-hist(x$Sleep.efficiency, main="" , xlab = "Sleep Efficiency", ylab= "Frequency")
+
 p5<-hist(x$REM.sleep.percentage, main="" , xlab = "REM Sleep Percentage [%]", ylab= "Frequency")
 p6<-hist(x$Deep.sleep.percentage, main="" , xlab = "Deep Sleep Percentage [%]", ylab= "Frequency")
-p7<-barplot(table(x$Awakenings), main="" , xlab = "Awakenings", ylab= "Frequency")
+
 p8 <- barplot(table(x$Caffeine.consumption), main="" , xlab = expression(paste("Caffeine Consumption [", mu, "g/day]")), ylab= "Frequency")
 p9<-barplot(table(x$Alcohol.consumption), main="" , xlab = expression(paste("Alcohol Consumption [oz/day]")), ylab= "Frequency")
 p10<-barplot(table(x$Smoking.status), main="" , xlab = "Smoking Status", ylab= "Frequency")
 p11<-barplot(table(x$Exercise.frequency), main="" , xlab = "Exercise Frequency", ylab= "Frequency")
-
+p4<-hist(x$Sleep.efficiency, main="" , xlab = "Sleep Efficiency", ylab= "Frequency")
+p7<-barplot(table(x$Awakenings), main="" , xlab = "Awakenings", ylab= "Frequency")
 
 # saving number of original columns
 dim = ncol(x)
 
-n = 100
+n = 2000
 
 set.seed(42)
 
@@ -156,10 +157,10 @@ media_beta <- numeric(length(stepwise_significativi)+1)
 for (k in 2:ncol(res[["t"]])){
   media_beta[k-1] <- mean(res[["t"]][,k])
 }
-tabella_stepwise <- data.frame(media_beta, IC_down_SW[-1], IC_up_SW[-1], isSignificativo[-1], contatore_vect_SW[contatore_vect_SW > n/2]) 
-<<results=tex>>
-xtable(tabella_stepwise, digits=c(0,-3,-3,-3,1,4))
+tabella_stepwise <- data.frame(media_beta, IC_down_SW[-1], IC_up_SW[-1], isSignificativo[-1], contatore_vect_SW[contatore_vect_SW > n/2]/n) 
 
+print_tab <- xtable(tabella_stepwise, digits=2)
+print(print_tab)
 
 ###############################################################################
 
@@ -460,3 +461,4 @@ pred <- predict(pois_fit, type = "response"); #predict of lambda, per questo pos
 #lambda è il parametro della poisson
 
 plot(Bikeshare$bikers,pred)
+
