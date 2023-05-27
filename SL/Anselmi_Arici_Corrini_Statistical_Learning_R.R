@@ -58,6 +58,7 @@ corrplot(corr_matrix, type="upper", order="hclust")
 
 #istorammi
 
+par(mfrow = c(3,2))
 p1<-hist(x$Age, main="" , xlab = "Age", ylab= "Frequency")
 p2<-barplot(table(x$Gender), main="" , xlab = "Gender", ylab= "Frequency")
 p3<-barplot(table(x$Sleep.duration), main="" , xlab = "Sleep Duration", ylab= "Frequency")
