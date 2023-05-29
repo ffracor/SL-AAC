@@ -46,13 +46,6 @@ x <- x[,-7]
 x <- na.omit(x)
 y <- x$Sleep.efficiency
 
-#analisi preliminare delle variabili
-var_dati <- setNames(numeric(length(colnames(x))), colnames(x))
-for(i in 1:length(var_dati)){
-  var_dati[i] <- var(x[,i])
-  hist(x[,i], main=names(var_dati)[i], sub="")
-}
-
 corr_matrix <- cor(x)
 corrplot(corr_matrix, type="upper", order="hclust")
 
@@ -117,37 +110,40 @@ get_alpha_SW <- function(data,index){
   }
 }
 
-# Use boot() function to perform bootstrap simulations
+#Bootstrap per calcolare le volte in cui un regressore compare all'interno della stepwise
 res_sw <- boot(x,get_alpha_SW,R = n, parallel = "multicore")
 
 stepwise_significativi <- names(contatore_vect_SW[contatore_vect_SW > n/2])
-stepwise_significativi <- stepwise_significativi[-1]
+stepwise_significativi <- stepwise_significativi[-1] #togliamo l'intercetta per poter usare il comando reformulate
 
 stepwise_final_model <- lm(reformulate(stepwise_significativi, "Sleep.efficiency"), data=x)
 summary(stepwise_final_model)
 
-# Define bootstrap function
+#Funzione bootrap per intervalli di confidenza sui coefficienti, MSE e R2
 get_alpha <- function(data,index){
   
   temp_train <- sample(nrow(data), floor(nrow(data) * 0.75), replace = TRUE)
   temp_mdl <- lm(reformulate(stepwise_significativi, "Sleep.efficiency"), data=x, subset = temp_train)
   temp_fitt_value <- predict(temp_mdl, data[-temp_train,])
   temp_test_MSE = mean((data$Sleep.efficiency[-temp_train] - temp_fitt_value)^2)
-  return (c(temp_test_MSE, temp_mdl$coefficients))
+  temp_r2 <- summary(temp_mdl)$r.squared
+  return (c(temp_test_MSE, temp_r2, temp_mdl$coefficients))
 }
 
 # Use boot() function to perform bootstrap simulations
 res <- boot(x,get_alpha,R=n)
-Coefficients_stepwise_final <- res[["t"]][,2]
-MSE_stepwise_final <- res[["t"]][,1]
+p <- res[["t"]]
+Coefficients_stepwise_final <- res[["t"]][,3:(length(stepwise_significativi)+3)] #prendo da 3 in poi (8 coefficienti + intercetta e i primi 2 sono R2 e mse)
+MSE_stepwise_final <- mean(res[["t"]][,1])
+r2_SW <- mean(res[["t"]][,2])
 mean(MSE_stepwise_final)
 hist(MSE_stepwise_final, main="Stepwise MSE", sub="")
 
 
 #creazione vettore per intervalli di confidenza
-IC_up_SW <- setNames(numeric(length(stepwise_significativi)+2), c("MSE", "Intercept", stepwise_significativi))
-IC_down_SW <- setNames(numeric(length(stepwise_significativi)+2), c("MSE", "Intercept", stepwise_significativi))
-isSignificativo <- setNames(numeric(length(stepwise_significativi)+2), c("MSE", "Intercept", stepwise_significativi))
+IC_up_SW <- setNames(numeric(length(stepwise_significativi)+3), c("MSE", "R2", "Intercept", stepwise_significativi))
+IC_down_SW <- setNames(numeric(length(stepwise_significativi)+3), c("MSE", "R2", "Intercept", stepwise_significativi))
+isSignificativo <- setNames(numeric(length(stepwise_significativi)+3), c("MSE", "R2", "Intercept", stepwise_significativi))
 
 for (k in 1:ncol(res[["t"]])){
   IC_up_SW[k] <- quantile(res[["t"]][,k], 0.975)
@@ -155,15 +151,23 @@ for (k in 1:ncol(res[["t"]])){
   isSignificativo[k] <- ifelse(IC_up_SW[k]*IC_down_SW[k]<=0,0,1)
 }
 
-media_beta <- numeric(length(stepwise_significativi)+1)
+media_beta <- numeric(length(stepwise_significativi)+1) #aggiungo 1 perchè rispetto a quelli del reformulate mi serve spazio per l'intercetta 
 
-for (k in 2:ncol(res[["t"]])){
-  media_beta[k-1] <- mean(res[["t"]][,k])
+Coefficients_stepwise_final
+
+for (k in 1:(length(stepwise_significativi)+1)){
+  media_beta[k] <- mean(Coefficients_stepwise_final[,k]) #non calcolo media di mse e r2
 }
-tabella_stepwise <- data.frame(media_beta, IC_down_SW[-1], IC_up_SW[-1], isSignificativo[-1], contatore_vect_SW[contatore_vect_SW > n/2]/n) 
 
-print_tab <- xtable(tabella_stepwise, digits=2)
-print(print_tab)
+#magari mettiamo anche quellinon significativi?!
+tabella_stepwise <- data.frame(media_beta, IC_down_SW[-1:-2], IC_up_SW[-1:-2])
+
+
+print_tab <- xtable(tabella_stepwise, digits=6)
+print.xtable(print_tab)
+
+#vettore delle comparse
+(contatore_vect_SW[-1]/(n+1))*100 #di cui non vogliamo visualizzare l'intercetta [-1]
 
 ###############################################################################
 
@@ -190,6 +194,7 @@ get_alpha_L <- function(data,index){
   
   temp_fitt_value <- predict(glm_model_lasso, s = lasso_opt_lambda_s, newx = data[-temp_train,])
   lasso_test_MSE = mean((Y[-temp_train] - temp_fitt_value)^2)
+  temp_r2 <-calcoloR_2(Y[-temp_train], temp_fitt_value)
   
   coeff_stimati <- names(glm_model_lasso$beta[, 1][glm_model_lasso$beta[, 1] != 0])
   i=0
@@ -199,21 +204,25 @@ get_alpha_L <- function(data,index){
     }
   }
   
-  return (lasso_test_MSE)
+  return (c(lasso_test_MSE, temp_r2))
 }
 
 # Use boot() function to perform bootstrap simulations
 res_lasso <- boot(X,get_alpha_L,R=n, parallel = "multicore")
-MSE_lasso <- res_lasso[["t"]]
+MSE_lasso <- mean(res_lasso[["t"]][,1])
+r2_lasso <- mean(res_lasso[["t"]][,2])
 hist(MSE_lasso, main= "Lasso MSE")
 mean(MSE_lasso)
+
+#stampa delle frequezne di apparizione
+100*contatore_vect_LASSO/(n+1)
 
 lasso_significativi <- names(contatore_vect_LASSO[contatore_vect_LASSO > n/2])
 lasso_significativi
 lassoIsSignificativo <- ifelse((contatore_vect_LASSO > n/2), "Yes", "No")
-tabella_lasso <- data.frame(glm_model_lasso_s$beta[,1], contatore_vect_LASSO[-4], lassoIsSignificativo[-4])
-<<results=tex>>
-xtable(tabella_lasso, digits=c(0, -5,4,0))
+tabella_lasso <- data.frame(glm_model_lasso_s$beta[,1])
+
+xtable(tabella_lasso, digits=3)
 
 #######################################################################################
 
@@ -232,12 +241,15 @@ get_alpha_ridge <- function(data,index){
   temp_fitt_value <- predict(glm_model_ridge, s = ridge_opt_lambda, newx = data[-temp_train,])
   ridge_test_MSE = mean((Y[-temp_train] - temp_fitt_value)^2)
   
-  return  (ridge_test_MSE)
+  temp_r2 <-calcoloR_2(Y[-temp_train], temp_fitt_value)
+  
+  return  (c(temp_r2, ridge_test_MSE))
 }
 
 # Use boot() function to perform bootstrap simulations
 res_ridge <- boot(X,get_alpha_ridge,R=n, parallel = "multicore")
-MSE_ridge <- res_lasso[["t"]][,1]
+MSE_ridge <- mean(res_ridge[["t"]][,2])
+r2_ridge <- mean(res_ridge[["t"]][,1])
 hist(MSE_ridge, main="Ridge MSE")
 mean(MSE_ridge)
 plot(cv_ridge)
@@ -250,103 +262,83 @@ plot(bagg_model, main="Bagging model")
 bagg_fit <- predict(bagg_model, newdata = x[-train,])
 plot(bagg_fit, x$Sleep.efficiency[-train])
 abline(0,1)
-MSE_bagg = mean((x$Sleep.efficiency[-train] - bagg_fit)^2)
-MSE_bagg
+MSE_bagg <- mean((x$Sleep.efficiency[-train] - bagg_fit)^2)
+r2_bagg <- calcoloR_2(x$Sleep.efficiency[-train], bagg_fit)
 
-#RANDOM FOREST
+#RANDOM FOREST (guardare Cov.r per questa analisi sul ranodm forest)
+dim = ncol(x)
 
-train <- sample(nrow(x), floor(nrow(x) * 0.75), replace = FALSE)
+n = 150
+train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE);
 
 rand_model <- randomForest(x$Sleep.efficiency ~ . ,data = x, subset = train,
-                           mtry = floor(sqrt(ncol(x)-1)), importance = TRUE, replace = TRUE, ntree = 200)
+                           mtry = 5, importance = TRUE, replace = TRUE, ntree = n, keep.forest = TRUE)
 
 plot(rand_model, main="Random forest model")
 rand_fit <- predict(rand_model, newdata = x[-train,])
-
-
 plot(rand_fit, x$Sleep.efficiency[-train])
 abline(0,1)
-MSE_rand = mean((x$Sleep.efficiency[-train] - rand_fit)^2)
-MSE_rand
+MSE_rand_RF = mean((x$Sleep.efficiency[-train] - rand_fit)^2)
+r2_rand_RF <- calcoloR_2(x$Sleep.efficiency[-train], rand_fit)
 
-get_predictors_IC <- function(data, index)
-{
-  temp_train <- sample(nrow(data), floor(nrow(data)), replace = TRUE)
-  temp_rand_model <- randomForest(Sleep.efficiency ~ . ,data = data[temp_train,],
-                                  mtry = (ncol(x)-1), importance = TRUE, replace = TRUE, ntree = 200)
+get_alpha_tree <- function(data,index){
   
-  temp_fit <- predict(temp_rand_model, newdata = x[-train])
+  temp_train <- sample(train, length(train), replace = TRUE)
   
-  return(temp_fit)
-}
-res_predizioni <- boot(x[train,], get_predictors_IC, R=n)
-
-IC_up_predictions <- numeric(nrow(x[-train,]))
-IC_down_predictions <- numeric(nrow(x[-train,]))
-medie_pre <- numeric(length(IC_up_predictions))
-y_test <- x[-train,4]
-isDentro <- numeric(ncol(res_predizioni[["t"]]))
-
-for (k in 1:ncol(res_predizioni[["t"]])){
-  IC_up_predictions[k] <- quantile(res_predizioni[["t"]][,k], 0.995)
-  IC_down_predictions[k] <- quantile(res_predizioni[["t"]][,k], 0.005)
-  medie_pre[k] = mean(res_predizioni[["t"]][,k])
-  isDentro[k] <- ifelse(y_test[k] >= IC_down_predictions[k] && y_test[k] <= IC_up_predictions[k], 1, 0)
-}
-
-#media del valore IC up IC down
-tabella_pred <- data.frame(medie_pre,  IC_down_predictions, y_test, IC_up_predictions,isDentro)
-xtable(tabella_pred, digits=c(0, -5, -5,-5))
-
-
-#coverage LR
-
-
-train <- sample(nrow(x), floor(nrow(x) * 0.75), replace = FALSE)
-
-get_alpha <- function(data,index){
+  temp_features <- sample(10, 5, replace = FALSE)
+  temp_features[temp_features==4] <- 11
   
-  temp_train <- sample(index,nrow(data), replace = TRUE)
-  temp_mdl <- lm(reformulate(stepwise_significativi, "Sleep.efficiency"), data=data, subset = temp_train)
-  temp_fitt_value <- predict(temp_mdl, x[-train,])
+  temp_tree_model <- tree(data$Sleep.efficiency ~ . , data= data[,temp_features], subset= temp_train, split='gini')
+  
+  temp_fitt_value <- predict(temp_tree_model, newdata = data[-train, temp_features])
+  
+  #temp_test_MSE = mean((data$Sleep.efficiency[-train] - temp_fitt_value)^2)
+  # temp_r2 <- calcoloR_2(data$Sleep.efficiency[-train], temp_fitt_value)
+  
   return (temp_fitt_value)
 }
-res_predizioni <- boot(x[train,], get_alpha, R=n)
 
-IC_up_predictions <- numeric(nrow(x[-train,]))
-IC_down_predictions <- numeric(nrow(x[-train,]))
-medie_pre <- numeric(length(IC_up_predictions))
-y_test <- x[-train,4]
-isDentro <- numeric(ncol(res_predizioni[["t"]]))
+res_predizioni_3 <- boot(x,get_alpha_tree,R=n) #attenzione 'x' minuscola in questo caso
 
-for (k in 1:ncol(res_predizioni[["t"]])){
-  IC_up_predictions[k] <- quantile(res_predizioni[["t"]][,k], 0.995)
-  IC_down_predictions[k] <- quantile(res_predizioni[["t"]][,k], 0.005)
-  medie_pre[k] = mean(res_predizioni[["t"]][,k])
-  isDentro[k] <- ifelse(y_test[k] >= IC_down_predictions[k] && y_test[k] <= IC_up_predictions[k], 1, 0)
+IC_up_predictions_3 <- numeric(nrow(x[-train,]))
+IC_down_predictions_3 <- numeric(nrow(x[-train,]))
+medie_pre_3 <- numeric(length(IC_up_predictions_3))
+y_test_3 <- x[-train,4]
+isDentro_3 <- numeric(ncol(res_predizioni_3[["t"]]))
+
+for (k in 1:ncol(res_predizioni_3[["t"]])){
+  IC_up_predictions_3[k] <- quantile(res_predizioni_3[["t"]][,k], 0.975)
+  IC_down_predictions_3[k] <- quantile(res_predizioni_3[["t"]][,k], 0.025)
+  medie_pre_3[k] = mean(res_predizioni_3[["t"]][,k])
+  isDentro_3[k] <- ifelse(y_test_3[k] >= IC_down_predictions_3[k] && y_test_3[k] <= IC_up_predictions_3[k], 1, 0)
 }
 
-#media del valore IC up IC down
-tabella_pred <- data.frame(medie_pre,  IC_down_predictions, y_test, IC_up_predictions,isDentro)
+MSE_naive_RF = mean((x$Sleep.efficiency[-train] - medie_pre_3)^2)
+sqrt(MSE_naive_RF)
 
+r2_naive_RF <- calcoloR_2(x$Sleep.efficiency[-train], medie_pre_3)
+
+#media del valore IC up IC down
+tabella_pred_3 <- data.frame(medie_pre_3,  IC_down_predictions_3, y_test_3, IC_up_predictions_3,isDentro_3)
+sum(isDentro_3)
 
 
 ##############################################################################
 #POISSON REGRESSION
 
-xeq <- balance(
-  data = x,
-  size = 40,
-  cat_col = 'Awakenings',
-  id_col = NULL,
-  id_method = "n_ids",
-  mark_new_rows = FALSE,
-  new_rows_col_name = ".new_row"
-)
-
-
-test_fix <- sample(nrow(x), floor(nrow(x) * 0.25), replace = TRUE)
-x <- x[-test_fix,]
+# xeq <- balance(
+#   data = x,
+#   size = 40,
+#   cat_col = 'Awakenings',
+#   id_col = NULL,
+#   id_method = "n_ids",
+#   mark_new_rows = FALSE,
+#   new_rows_col_name = ".new_row"
+# )
+# 
+# 
+# test_fix <- sample(nrow(x), floor(nrow(x) * 0.25), replace = TRUE)
+# x <- x[-test_fix,]
 
 #inizializzo il vettore per il conteggio
 col_name <- c("(Intercept)",colnames(x))
@@ -375,7 +367,7 @@ get_alpha_POISS <- function(data,index){
   return(pois_mdl$coefficients)
 }
 
-n = 1000
+n = 2000
 # Use boot() function to perform bootstrap simulations
 coefficients_sw_poiss <- boot(x,get_alpha_POISS,R = n, parallel = "multicore")
 
@@ -408,6 +400,9 @@ summary(stepwise_final_model_poiss)
 
 pred <- predict(stepwise_final_model_poiss,type="response")
 plot(x$Awakenings,pred)
+
+D_tot_poiss = sum((x$Awakenings - mean(x$Awakenings))^2)
+D_res_poiss = sum((x$Awakenings - pred)^2)
 
 ####### FINE PARTE SENZA STEPWISE (nomi della variabili da sitemare)
 
