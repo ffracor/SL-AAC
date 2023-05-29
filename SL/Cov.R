@@ -43,7 +43,7 @@ y <- x$Sleep.efficiency
 # saving number of original columns
 dim = ncol(x)
 
-n = 2000
+n = 150
 
 set.seed(42)
 train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE);
@@ -51,19 +51,6 @@ train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE);
 rand_model <- randomForest(x$Sleep.efficiency ~ . ,data = x, subset = train,
                            mtry = 5, importance = TRUE, replace = TRUE, ntree = n, keep.forest = TRUE)
 
-plot(rand_model, main="Random forest model")
-rand_fit <- predict(rand_model, newdata = x[-train,])
-plot(rand_fit, x$Sleep.efficiency[-train])
-abline(0,1)
-MSE_rand_RF = mean((x$Sleep.efficiency[-train] - rand_fit)^2)
-MSE_rand_RF
-sqrt(MSE_rand_RF)
-
-#calcolo dell'R^2
-D_tot = sum((x$Sleep.efficiency[-train] - mean(x$Sleep.efficiency[-train]))^2)
-D_res = sum((x$Sleep.efficiency[-train] - rand_fit)^2)
-r_2 = 1- D_res/D_tot
-r_2
 
 #funzione calcolo R^2
 calcoloR_2 <- function(y, y_hat){
@@ -73,6 +60,13 @@ calcoloR_2 <- function(y, y_hat){
 }
 
 
+plot(rand_model, main="Random forest model")
+rand_fit <- predict(rand_model, newdata = x[-train,])
+plot(rand_fit, x$Sleep.efficiency[-train])
+abline(0,1)
+MSE_rand_RF = mean((x$Sleep.efficiency[-train] - rand_fit)^2)
+r2_rand_RF <- calcoloR_2(x$Sleep.efficiency[-train], rand_fit)
+
 get_alpha_tree <- function(data,index){
   
   temp_train <- sample(train, length(train), replace = TRUE)
@@ -80,11 +74,12 @@ get_alpha_tree <- function(data,index){
   temp_features <- sample(10, 5, replace = FALSE)
   temp_features[temp_features==4] <- 11
   
-  temp_tree_model <- tree(data$Sleep.efficiency ~ . , data= data[,temp_features], subset= temp_train , split = 'gini')
+  temp_tree_model <- tree(data$Sleep.efficiency ~ . , data= data[,temp_features], subset= temp_train, split='gini')
   
   temp_fitt_value <- predict(temp_tree_model, newdata = data[-train, temp_features])
   
   #temp_test_MSE = mean((data$Sleep.efficiency[-train] - temp_fitt_value)^2)
+  temp_r2 <- calcoloR_2(data$Sleep.efficiency[-train], temp_fitt_value)
   
   return (temp_fitt_value)
 }
@@ -152,8 +147,11 @@ get_alpha_tree <- function(data,index){
 
 ########
 res_predizioni_3 <- boot(x,get_alpha_tree,R=n) #attenzione 'x' minuscola in questo caso
-res_predizioni_3[["t"]]
+
+
 #hist(res[["t"]][,1])
+#r2_RF <- mean(res_predizioni_3[["t"]][,2])
+hist(res_predizioni_3[["t"]][,2])
 
 IC_up_predictions_3 <- numeric(nrow(x[-train,]))
 IC_down_predictions_3 <- numeric(nrow(x[-train,]))
@@ -170,6 +168,8 @@ for (k in 1:ncol(res_predizioni_3[["t"]])){
 
 MSE_rand = mean((x$Sleep.efficiency[-train] - medie_pre_3)^2)
 sqrt(MSE_rand)
+
+r2_naive_RF <- calcoloR_2(x$Sleep.efficiency[-train], medie_pre_3)
 
 #media del valore IC up IC down
 tabella_pred_3 <- data.frame(medie_pre_3,  IC_down_predictions_3, y_test_3, IC_up_predictions_3,isDentro_3)
