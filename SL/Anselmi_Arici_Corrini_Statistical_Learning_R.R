@@ -21,10 +21,9 @@ library(corrplot)
 library(gridExtra)
 library(ggplot2)
 
-
 # clear all environment variable 
 rm(list = ls()) 
-
+set.seed(42)
 
 # PREPROCESSING
 
@@ -73,8 +72,6 @@ p4<-hist(x$Sleep.efficiency, main="" , xlab = "Sleep Efficiency", ylab= "Frequen
 dim = ncol(x)
 
 n = 2000
-
-set.seed(42)
 
 train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE);
 
@@ -211,7 +208,7 @@ get_alpha_L <- function(data,index){
 res_lasso <- boot(X,get_alpha_L,R=n, parallel = "multicore")
 MSE_lasso <- mean(res_lasso[["t"]][,1])
 r2_lasso <- mean(res_lasso[["t"]][,2])
-hist(MSE_lasso, main= "Lasso MSE")
+hist(res_lasso[["t"]][,1], main= "Lasso MSE")
 mean(MSE_lasso)
 
 #stampa delle frequezne di apparizione
@@ -252,6 +249,7 @@ MSE_ridge <- mean(res_ridge[["t"]][,2])
 r2_ridge <- mean(res_ridge[["t"]][,1])
 hist(MSE_ridge, main="Ridge MSE")
 mean(MSE_ridge)
+par(mfrow = c(1,2))
 plot(cv_ridge)
 
 ##################################################################################
@@ -352,11 +350,11 @@ get_alpha_POISS <- function(data,index){
   
   pois_mdl <- glm(Awakenings ~ . , data = x[temp_train,] , family = poisson)
  # print(pois_mdl$coefficients)
-  step_pois <- stepAIC(pois_mdl, direction = "both", 
-                        trace = FALSE)
+  #step_pois <- stepAIC(pois_mdl, direction = "both", 
+   #                     trace = FALSE)
   
   #parte per conteggio delle comparse
-  coeff_stimati <- names(step_pois$coefficients)
+  coeff_stimati <- names(pois_mdl$coefficients)
   i=0
   for (i in 1:dim){
     if(names(contatore_vect_POISS[i]) %in% coeff_stimati){
@@ -401,8 +399,17 @@ summary(stepwise_final_model_poiss)
 pred <- predict(stepwise_final_model_poiss,type="response")
 plot(x$Awakenings,pred)
 
-D_tot_poiss = sum((x$Awakenings - mean(x$Awakenings))^2)
-D_res_poiss = sum((x$Awakenings - pred)^2)
+
+
+
+
+
+
+
+
+
+
+
 
 ####### FINE PARTE SENZA STEPWISE (nomi della variabili da sitemare)
 
@@ -450,8 +457,6 @@ plot(x$Awakenings,v)
 
 ########################################################################################################################################
 #TREE
-
-set.seed(42)
 train <- sample(dim(x)[1],floor(dim(x)[1]*0.75),replace = FALSE)
 treeMdl <- tree(data = x, subset = train, formula = as.factor(Awakenings) ~ ., split = "gini")
 plot(treeMdl)
