@@ -23,7 +23,7 @@ library(ggplot2)
 
 # clear all environment variable 
 rm(list = ls()) 
-set.seed(42)
+set.seed(3)
 
 # PREPROCESSING
 
@@ -179,8 +179,9 @@ contatore_vect_LASSO <- setNames(numeric(length(col_name)), col_name)
 cv_lasso <- cv.glmnet(X, Y, alpha = 1, nfolds = 10, lambda = NULL)
 lasso_opt_lambda_s = cv_lasso$lambda.min
 glm_model_lasso_s = glmnet(X[train,], Y[train],alpha = 1, lambda = lasso_opt_lambda_s)
+par(mfrow = c(1,2))
 plot(cv_lasso)
-
+title("Lasso", line=2.5)
 
 #Bootstrap su lasso
 get_alpha_L <- function(data,index){
@@ -219,7 +220,7 @@ lasso_significativi
 lassoIsSignificativo <- ifelse((contatore_vect_LASSO > n/2), "Yes", "No")
 tabella_lasso <- data.frame(glm_model_lasso_s$beta[,1])
 
-xtable(tabella_lasso, digits=3)
+xtable(tabella_lasso, digits=6)
 
 #######################################################################################
 
@@ -251,6 +252,7 @@ hist(MSE_ridge, main="Ridge MSE")
 mean(MSE_ridge)
 par(mfrow = c(1,2))
 plot(cv_ridge)
+title("Ridge", line = 2.5)
 
 ##################################################################################
 
@@ -314,16 +316,17 @@ for (k in 1:ncol(res_predizioni_3[["t"]])){
 MSE_naive_RF = mean((x$Sleep.efficiency[-train] - medie_pre_3)^2)
 sqrt(MSE_naive_RF)
 
-r2_naive_RF <- calcoloR_2(x$Sleep.efficiency[-train], medie_pre_3)
+#r2_naive_RF <- calcoloR_2(x$Sleep.efficiency[-train], medie_pre_3)
 
 #media del valore IC up IC down
 tabella_pred_3 <- data.frame(medie_pre_3,  IC_down_predictions_3, y_test_3, IC_up_predictions_3,isDentro_3)
+xtable(tabella_pred_3, digits = c(0, 3,3,3,3,0))
 sum(isDentro_3)
 
 
 ##############################################################################
 #POISSON REGRESSION
-
+set.seed(42)
 # xeq <- balance(
 #   data = x,
 #   size = 40,
@@ -387,26 +390,18 @@ for (k in 1:ncol(coefficients_sw_poiss[["t"]])){
 }
 
 tabella_pred <- data.frame(medie_coeff_poiss,  IC_down_predictions_poiss, IC_up_predictions_poiss, isSignificativo_poiss)
+xtable(tabella_pred, digits = 6)
 
 stepwise_significativi_poiss <- names(isSignificativo_poiss[isSignificativo_poiss == 1])
 #stepwise_significativi_poiss <- stepwise_significativi_poiss[-1]
 stepwise_significativi_poiss <- stepwise_significativi_poiss[-1]
 
 #reformulate ha problemi con l'intercetta
-stepwise_final_model_poiss <- glm(reformulate(stepwise_significativi_poiss, "Awakenings"), data=x, family = 'poisson')
+stepwise_final_model_poiss <- glm(reformulate(stepwise_significativi_poiss, "Awakenings"), data=x[train,], family = 'poisson')
 summary(stepwise_final_model_poiss)
 
-pred <- predict(stepwise_final_model_poiss,type="response")
-plot(x$Awakenings,pred)
-
-
-
-
-
-
-
-
-
+pred <- predict(stepwise_final_model_poiss,type="response", newdata = x[-train,])
+plot(x$Awakenings[-train],pred)
 
 
 
